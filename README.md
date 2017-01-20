@@ -10,6 +10,7 @@ CrazyDiskInfo is an interactive TUI S.M.A.R.T viewer for Unix systems.
 ## Build
 ```
 mkdir build
+cd build
 cmake ..
 make && make install
 ```
