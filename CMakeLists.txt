@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.0.0)
+project(CrazyDiskInfo CXX)
+add_executable(CrazyDiskInfo main.cpp)
+set(CMAKE_CXX_FLAGS "-Wall -std=c++14")
+SET_TARGET_PROPERTIES(CrazyDiskInfo PROPERTIES OUTPUT_NAME crazy)
+target_link_libraries(CrazyDiskInfo atasmart)
+target_link_libraries(CrazyDiskInfo ncursesw)
+INSTALL(TARGETS CrazyDiskInfo RUNTIME DESTINATION /usr/sbin)
