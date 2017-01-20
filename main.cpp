@@ -382,23 +382,31 @@ int main()
 		{
 			case KEY_HOME:
 				select = 0;
+				clear();
+				refresh();
 				update();
 				break;
 
 			case KEY_END:
 				select = static_cast<int>(smartList.size()) - 1;
+				clear();
+				refresh();
 				update();
 				break;
 
 			case KEY_LEFT:
 			case 'h':
 				select = std::max(select - 1, 0);
+				clear();
+				refresh();
 				update();
 				break;
 
 			case KEY_RIGHT:
 			case 'l':
 				select = std::min(select + 1, static_cast<int>(smartList.size()) - 1);
+				clear();
+				refresh();
 				update();
 				break;
 
