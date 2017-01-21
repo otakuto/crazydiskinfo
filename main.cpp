@@ -320,6 +320,7 @@ int main()
 	init_pair(8, COLOR_YELLOW, COLOR_BLACK);
 
 	int select = 0;
+	int smart_ret = 0;
 	std::vector<SMART> smartList;
 	auto dir = opendir("/sys/block");
 	while (auto e = readdir(dir))
@@ -336,8 +337,10 @@ int main()
 		{
 			continue;
 		}
-		sk_disk_smart_is_available(skdisk, &b);
+		smart_ret = sk_disk_smart_is_available(skdisk, &b);
 		sk_disk_free(skdisk);
+		if (smart_ret < 0)
+			continue;
 		if (b)
 		{
 			smartList.push_back(SMART(std::string("/dev/") + std::string(e->d_name)));
