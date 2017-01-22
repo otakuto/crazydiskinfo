@@ -6,7 +6,7 @@ CrazyDiskInfo is an interactive TUI S.M.A.R.T viewer for Unix systems.
 
 ## Features
 * UI similar to CrystalDiskInfo.
-* Health check algorithm based on CrystalDiskInfo.
+* Health and temperature checking algorithms based on CrystalDiskInfo.
 
 ## Required libraries
 * ncurses
