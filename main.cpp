@@ -43,10 +43,12 @@ public:
 	std::string model;
 	std::string firmware;
 	std::string serial;
-	uint64_t size;
-	uint64_t powerOnCount;
-	uint64_t powerOnHour;
-	double temperature;
+	//TODO
+	//use std::optional
+	std::pair<bool, uint64_t> size;
+	std::pair<bool, uint64_t> powerOnCount;
+	std::pair<bool, uint64_t> powerOnHour;
+	std::pair<bool, double> temperature;
 
 	std::vector<Attribute> attribute;
 
@@ -65,14 +67,45 @@ public:
 		serial = data->serial;
 
 		uint64_t value;
-		sk_disk_get_size(skdisk, &value);
-		size = value;
-		sk_disk_smart_get_power_cycle(skdisk, &value);
-		powerOnCount = value;
-		sk_disk_smart_get_power_on(skdisk, &value);
-		powerOnHour = value / (1000llu * 60llu * 60llu);
-		sk_disk_smart_get_temperature(skdisk, &value);
-		temperature = (double)(value - 273150llu) / 1000.0;
+		if (!sk_disk_get_size(skdisk, &value))
+		{
+			std::get<0>(size) = true;
+			std::get<1>(size) = value;
+		}
+		else
+		{
+			std::get<0>(size) = false;
+		}
+
+		if (!sk_disk_smart_get_power_cycle(skdisk, &value))
+		{
+			std::get<0>(powerOnCount) = true;
+			std::get<1>(powerOnCount) = value;
+		}
+		else
+		{
+			std::get<0>(powerOnCount) = false;
+		}
+
+		if (!sk_disk_smart_get_power_on(skdisk, &value))
+		{
+			std::get<0>(powerOnHour) = true;
+			std::get<1>(powerOnHour) = value / (1000llu * 60llu * 60llu);
+		}
+		else
+		{
+			std::get<0>(powerOnHour) = false;
+		}
+
+		if (!sk_disk_smart_get_temperature(skdisk, &value))
+		{
+			std::get<0>(temperature) = true;
+			std::get<1>(temperature) = (double)(value - 273150llu) / 1000.0;
+		}
+		else
+		{
+			std::get<0>(temperature) = false;
+		}
 
 		sk_disk_smart_parse_attributes(skdisk, [](SkDisk * skdisk, SkSmartAttributeParsedData const * data, void * userdata)
 		{
@@ -173,11 +206,20 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 		mvwprintw(window, 0, x, "%-7s", healthToString(smartToHealth(smartList[i])).c_str());
 		wattroff(window, COLOR_PAIR(1 + static_cast<int>(smartToHealth(smartList[i]))));
 
-		wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(smartList[i].temperature))));
-		mvwprintw(window, 1, x, "%.1f ", smartList[i].temperature);
-		waddch(window, ACS_DEGREE);
-		waddstr(window, "C");
-		wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(smartList[i].temperature))));
+		if (std::get<0>(smartList[i].temperature))
+		{
+			wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
+			mvwprintw(window, 1, x, "%.1f ", smartList[i].temperature);
+			waddch(window, ACS_DEGREE);
+			waddstr(window, "C");
+			wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
+		}
+		else
+		{
+			mvwprintw(window, 1, x, "-- ");
+			waddch(window, ACS_DEGREE);
+			waddstr(window, "C");
+		}
 
 		if (i == select)
 		{
@@ -203,27 +245,35 @@ void drawStatus(WINDOW * window, SMART const & smart)
 {
 	wresize(window, 10 + smart.attribute.size(), STATUS_WIDTH);
 	wborder(window, '|', '|', '-', '-', '+', '+', '+', '+');
+	if (std::get<0>(smart.size))
 	{
-	std::vector<std::string> unit = {{"Byte", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}};
-	int u = 0;
-	double size = smart.size;
-	while (true)
-	{
-		double old = size;
-		size /= 1024;
-		if (size < 1.0)
+		std::vector<std::string> unit = {{"Byte", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}};
+		int u = 0;
+		double size = std::get<1>(smart.size);
+		while (true)
 		{
-			size = old;
-			break;
+			double old = size;
+			size /= 1024;
+			if (size < 1.0)
+			{
+				size = old;
+				break;
+			}
+			++u;
 		}
-		++u;
+		char s[STATUS_WIDTH];
+		int len = snprintf(s, STATUS_WIDTH, " %s [%.1f %s] ", smart.model.c_str(), size, unit[u].c_str());
+		wattrset(window, COLOR_PAIR(4) | A_BOLD);
+		mvwprintw(window, 0, (STATUS_WIDTH - len) / 2, "%s", s);
+		wattroff(window, COLOR_PAIR(4) | A_BOLD);
 	}
-	char s[STATUS_WIDTH];
-	int len = snprintf(s, STATUS_WIDTH, " %s [%.1f %s] ", smart.model.c_str(), size, unit[u].c_str());
-
-	wattrset(window, COLOR_PAIR(4) | A_BOLD);
-	mvwprintw(window, 0, (STATUS_WIDTH - len) / 2, "%s", s);
-	wattroff(window, COLOR_PAIR(4) | A_BOLD);
+	else
+	{
+		char s[STATUS_WIDTH];
+		int len = snprintf(s, STATUS_WIDTH, " %s [--] ", smart.model.c_str());
+		wattrset(window, COLOR_PAIR(4) | A_BOLD);
+		mvwprintw(window, 0, (STATUS_WIDTH - len) / 2, "%s", s);
+		wattroff(window, COLOR_PAIR(4) | A_BOLD);
 	}
 
 	wattrset(window, COLOR_PAIR(4));
@@ -250,32 +300,59 @@ void drawStatus(WINDOW * window, SMART const & smart)
 	mvwprintw(window, 3, 2 + ((sizeof("|        |") - healthToString(smartToHealth(smart)).length()) / 2), "%s", healthToString(smartToHealth(smart)).c_str());
 	wattroff(window, COLOR_PAIR(1 + static_cast<int>(smartToHealth(smart))));
 
-	wattrset(window, COLOR_PAIR(4));
-	mvwprintw(window, 5, 1, "Temperature");
-	wattroff(window, COLOR_PAIR(4));
-	wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(smart.temperature))));
-	mvwprintw(window, 6, 2, "  %0.1f ", smart.temperature);
-	waddch(window, ACS_DEGREE);
-	waddstr(window, "C  ");
-	wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(smart.temperature))));
+	if (std::get<0>(smart.temperature))
+	{
+		wattrset(window, COLOR_PAIR(4));
+		mvwprintw(window, 5, 1, "Temperature");
+		wattroff(window, COLOR_PAIR(4));
+		wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smart.temperature)))));
+		mvwprintw(window, 6, 2, "  %0.1f ", std::get<1>(smart.temperature));
+		waddch(window, ACS_DEGREE);
+		waddstr(window, "C  ");
+		wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smart.temperature)))));
+	}
+	else
+	{
+		mvwprintw(window, 5, 1, "Temperature");
+		mvwprintw(window, 6, 2, "  -- ");
+		waddch(window, ACS_DEGREE);
+		waddstr(window, "C  ");
+	}
 
-	wattrset(window, COLOR_PAIR(4));
-	mvwprintw(window, 2, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
-	wattrset(window, COLOR_PAIR(4) | A_BOLD);
-	wprintw(window, " %llu ", smart.powerOnCount);
-	wattroff(window, COLOR_PAIR(4) | A_BOLD);
-	wattrset(window, COLOR_PAIR(4));
-	wprintw(window, "count");
+	if (std::get<0>(smart.powerOnCount))
+	{
+		wattrset(window, COLOR_PAIR(4));
+		mvwprintw(window, 2, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
+		wattroff(window, COLOR_PAIR(4));
+		wattrset(window, COLOR_PAIR(4) | A_BOLD);
+		wprintw(window, " %llu ", std::get<1>(smart.powerOnCount));
+		wattroff(window, COLOR_PAIR(4) | A_BOLD);
+		wattrset(window, COLOR_PAIR(4));
+		wprintw(window, "count");
+	}
+	else
+	{
+		mvwprintw(window, 2, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
+		wprintw(window, " -- count");
+	}
 
-	wattrset(window, COLOR_PAIR(4));
-	mvwprintw(window, 3, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
-	wattroff(window, COLOR_PAIR(4));
-	wattrset(window, COLOR_PAIR(4) | A_BOLD);
-	wprintw(window, " %llu ", smart.powerOnHour);
-	wattroff(window, COLOR_PAIR(4) | A_BOLD);
-	wattrset(window, COLOR_PAIR(4));
-	wprintw(window, "hours");
-	wattroff(window, COLOR_PAIR(4));
+	if (std::get<0>(smart.powerOnHour))
+	{
+		wattrset(window, COLOR_PAIR(4));
+		mvwprintw(window, 3, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
+		wattroff(window, COLOR_PAIR(4));
+		wattrset(window, COLOR_PAIR(4) | A_BOLD);
+		wprintw(window, " %llu ", std::get<1>(smart.powerOnHour));
+		wattroff(window, COLOR_PAIR(4) | A_BOLD);
+		wattrset(window, COLOR_PAIR(4));
+		wprintw(window, "hours");
+		wattroff(window, COLOR_PAIR(4));
+	}
+	else
+	{
+		mvwprintw(window, 3, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
+		wprintw(window, " -- hours");
+	}
 
 	wattrset(window, COLOR_PAIR(7));
 	mvwprintw(window, 8, 1, " Status  ID AttributeName                Current Worst Threshold   Raw Values ");
@@ -340,7 +417,9 @@ int main()
 		smart_ret = sk_disk_smart_is_available(skdisk, &b);
 		sk_disk_free(skdisk);
 		if (smart_ret < 0)
+		{
 			continue;
+		}
 		if (b)
 		{
 			smartList.push_back(SMART(std::string("/dev/") + std::string(e->d_name)));
@@ -375,10 +454,12 @@ int main()
 		doupdate();
 	};
 	update();
+
 	{
 		struct sigaction s = {{actionWINCH}};
 		sigaction(SIGWINCH, &s, nullptr);
 	}
+
 	while(true)
 	{
 		switch (wgetch(windowDeviceBar))
