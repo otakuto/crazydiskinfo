@@ -428,6 +428,14 @@ int main()
 	}
 	std::sort(smartList.begin(), smartList.end(), [](auto lhs, auto rhs){return lhs.deviceName < rhs.deviceName;});
 
+	if (smartList.size() == 0)
+	{
+		endwin();
+		std::cerr << "No S.M.A.R.T readable devices." << std::endl;
+		std::cerr << "If you are non-root user, please use sudo or become root." << std::endl;
+		return 1;
+	}
+
 	WINDOW * windowVersion;
 	windowVersion = newwin(1, width, 0, 0);
 
@@ -503,4 +511,3 @@ int main()
 		}
 	}
 }
-
