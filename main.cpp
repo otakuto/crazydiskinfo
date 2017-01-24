@@ -431,8 +431,8 @@ int main()
 	if (smartList.size() == 0)
 	{
 		endwin();
-		std::cout << "No S.M.A.R.T readable devices." << std::endl;
-		std::cout << "If you are non-root user, please use sudo or become root." << std::endl;
+		std::cerr << "No S.M.A.R.T readable devices." << std::endl;
+		std::cerr << "If you are non-root user, please use sudo or become root." << std::endl;
 		return 1;
 	}
 
