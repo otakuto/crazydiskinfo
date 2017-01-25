@@ -456,8 +456,11 @@ int main()
 	update = [&]()
 	{
 		getmaxyx(stdscr, height, width);
+		wclear(windowVersion);
 		drawVersion(windowVersion);
+		wclear(windowDeviceBar);
 		drawDeviceBar(windowDeviceBar, smartList, select);
+		wclear(windowDeviceStatus);
 		drawStatus(windowDeviceStatus, smartList[select]);
 		doupdate();
 	};
