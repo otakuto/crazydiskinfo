@@ -161,7 +161,7 @@ Health attributeToHealth(Attribute const & attribute)
 
 Health smartToHealth(SMART const & smart)
 {
-	return attributeToHealth(*std::max_element(smart.attribute.cbegin(), smart.attribute.cend(), [](auto lhs, auto rhs)
+	return attributeToHealth(*std::max_element(smart.attribute.cbegin(), smart.attribute.cend(), [](Attribute const & lhs, Attribute const & rhs)
 	{
 		return static_cast<int>(attributeToHealth(lhs)) < static_cast<int>(attributeToHealth(rhs));
 	}));
@@ -426,7 +426,7 @@ int main()
 		}
 		}
 	}
-	std::sort(smartList.begin(), smartList.end(), [](auto lhs, auto rhs){return lhs.deviceName < rhs.deviceName;});
+	std::sort(smartList.begin(), smartList.end(), [](SMART const & lhs, SMART const & rhs){return lhs.deviceName < rhs.deviceName;});
 
 	if (smartList.size() == 0)
 	{
