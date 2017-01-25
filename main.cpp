@@ -397,7 +397,6 @@ int main()
 	init_pair(8, COLOR_YELLOW, COLOR_BLACK);
 
 	int select = 0;
-	int smart_ret = 0;
 	std::vector<SMART> smartList;
 	auto dir = opendir("/sys/block");
 	while (auto e = readdir(dir))
@@ -407,23 +406,23 @@ int main()
 			std::string("ram") != std::string(e->d_name).substr(0,3) &&
 			std::string("loop") != std::string(e->d_name).substr(0,4))
 		{
-		SkDisk * skdisk;
-		SkBool b;
-		int f = sk_disk_open((std::string("/dev/") + std::string(e->d_name)).c_str(), &skdisk);
-		if (f < 0)
-		{
-			continue;
-		}
-		smart_ret = sk_disk_smart_is_available(skdisk, &b);
-		sk_disk_free(skdisk);
-		if (smart_ret < 0)
-		{
-			continue;
-		}
-		if (b)
-		{
-			smartList.push_back(SMART(std::string("/dev/") + std::string(e->d_name)));
-		}
+			SkDisk * skdisk;
+			SkBool b;
+			int f = sk_disk_open((std::string("/dev/") + std::string(e->d_name)).c_str(), &skdisk);
+			if (f < 0)
+			{
+				continue;
+			}
+			int smart_ret = sk_disk_smart_is_available(skdisk, &b);
+			sk_disk_free(skdisk);
+			if (smart_ret < 0)
+			{
+				continue;
+			}
+			if (b)
+			{
+				smartList.push_back(SMART(std::string("/dev/") + std::string(e->d_name)));
+			}
 		}
 	}
 	std::sort(smartList.begin(), smartList.end(), [](SMART const & lhs, SMART const & rhs){return lhs.deviceName < rhs.deviceName;});
