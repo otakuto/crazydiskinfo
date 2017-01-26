@@ -191,7 +191,7 @@ void drawVersion(WINDOW * window)
 	wattroff(window, COLOR_PAIR(4));
 
 	wattrset(window, COLOR_PAIR(8));
-	mvwprintw(window, 0, (width - sizeof(" CrazyDiskInfo-1.0.0 ")) / 2, " CrazyDiskInfo-1.0.0 ");
+	mvwprintw(window, 0, (width - sizeof(" CrazyDiskInfo-1.0.1 ")) / 2, " CrazyDiskInfo-1.0.1 ");
 	wattroff(window, COLOR_PAIR(8));
 
 	wnoutrefresh(window);
