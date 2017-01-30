@@ -25,3 +25,9 @@ $ cmake ..
 $ make && make install
 $ sudo crazy
 ```
+
+### Binary Package
+Debian package is available from [OBS(Open Build Service)](https://build.opensuse.org/package/show/home:tsuroot/CrazyDiskInfo)  
+Direct Links:  
+[Debian_8.0](http://download.opensuse.org/repositories/home:/tsuroot/Debian_8.0/)  
+Ubuntu [14.04](http://download.opensuse.org/repositories/home:/tsuroot/xUbuntu_14.04/)/[16.04](http://download.opensuse.org/repositories/home:/tsuroot/xUbuntu_16.04/)/[16.10](http://download.opensuse.org/repositories/home:/tsuroot/xUbuntu_16.10/)  
