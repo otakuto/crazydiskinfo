@@ -360,7 +360,11 @@ void drawStatus(WINDOW * window, SMART const & smart)
 	for (int i = 0; i < static_cast<int>(smart.attribute.size()); ++i)
 	{
 		wattrset(window, COLOR_PAIR(4 + static_cast<int>(attributeToHealth(smart.attribute[i]))));
+#ifndef RAWDEC
+		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9d %012X ",
+#else
 		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9d %012d ",
+#endif//RAWDEC
 			healthToString(attributeToHealth(smart.attribute[i])).c_str(),
 			smart.attribute[i].id,
 			smart.attribute[i].name.c_str(),
