@@ -9,6 +9,9 @@
 #include <sys/signal.h>
 #include <dirent.h>
 
+std::string const TITLE = "CrazyDiskInfo";
+std::string const VERSION = "1.0.2";
+
 constexpr int const STATUS_WIDTH = 80;
 
 constexpr int const DEVICE_BAR_HEIGHT = 4;
@@ -201,8 +204,10 @@ void drawVersion(WINDOW * window)
 	mvwhline(window, 0, 0, '-', width);
 	wattroff(window, COLOR_PAIR(4));
 
+	auto title = " " + TITLE + "-" + VERSION + " ";
+
 	wattrset(window, COLOR_PAIR(8));
-	mvwprintw(window, 0, (width - sizeof(" CrazyDiskInfo-1.0.2 ")) / 2, " CrazyDiskInfo-1.0.2 ");
+	mvwprintw(window, 0, (width - title.length()) / 2, title.c_str());
 	wattroff(window, COLOR_PAIR(8));
 
 	wnoutrefresh(window);
