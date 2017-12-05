@@ -18,6 +18,17 @@ constexpr int const VERSION_HEIGHT = 1;
 int width;
 int height;
 
+class Option
+{
+public:
+	bool hideSerial;
+	Option()
+	:
+	hideSerial(false)
+	{
+	}
+};
+
 enum class Health
 {
 	Good,
@@ -241,7 +252,7 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 	pnoutrefresh(window, 0, 0, 1, 0, DEVICE_BAR_HEIGHT, width - 1);
 }
 
-void drawStatus(WINDOW * window, SMART const & smart)
+void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 {
 	wresize(window, 10 + smart.attribute.size(), STATUS_WIDTH);
 	wborder(window, '|', '|', '-', '-', '+', '+', '+', '+');
@@ -287,7 +298,14 @@ void drawStatus(WINDOW * window, SMART const & smart)
 	mvwprintw(window, 3, (int)(STATUS_WIDTH * (1.0 / 5)), "Serial:  ");
 	wattroff(window, COLOR_PAIR(4));
 	wattrset(window, COLOR_PAIR(4) | A_BOLD);
-	wprintw(window, " %s", smart.serial.c_str());
+	if (option.hideSerial)
+	{
+		wprintw(window, " ********************");
+	}
+	else
+	{
+		wprintw(window, " %s", smart.serial.c_str());
+	}
 	wattroff(window, COLOR_PAIR(4) | A_BOLD);
 
 	wattrset(window, COLOR_PAIR(4));
@@ -407,7 +425,6 @@ int main()
 	init_pair(7, COLOR_BLACK, COLOR_GREEN);
 	init_pair(8, COLOR_YELLOW, COLOR_BLACK);
 
-	int select = 0;
 	std::vector<SMART> smartList;
 	auto dir = opendir("/sys/block");
 	while (auto e = readdir(dir))
@@ -446,6 +463,9 @@ int main()
 		return 1;
 	}
 
+	int select = 0;
+	Option option;
+
 	WINDOW * windowVersion;
 	windowVersion = newwin(1, width, 0, 0);
 
@@ -471,7 +491,7 @@ int main()
 		wclear(windowDeviceBar);
 		drawDeviceBar(windowDeviceBar, smartList, select);
 		wclear(windowDeviceStatus);
-		drawStatus(windowDeviceStatus, smartList[select]);
+		drawStatus(windowDeviceStatus, smartList[select], option);
 		doupdate();
 	};
 	update();
@@ -481,7 +501,7 @@ int main()
 		sigaction(SIGWINCH, &s, nullptr);
 	}
 
-	while(true)
+	while (true)
 	{
 		switch (wgetch(windowDeviceBar))
 		{
@@ -514,6 +534,15 @@ int main()
 				refresh();
 				update();
 				break;
+
+
+			case 's':
+				option.hideSerial = !option.hideSerial;
+				clear();
+				refresh();
+				update();
+				break;
+
 
 			case 'q':
 				endwin();
