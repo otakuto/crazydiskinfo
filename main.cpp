@@ -3,11 +3,15 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <cstdio>
+#include <memory>
+#include <string_view>
+#include <optional>
+#include <tuple>
 #include <locale.h>
 #include <ncurses.h>
-#include <atasmart.h>
 #include <sys/signal.h>
-#include <dirent.h>
+#include <nlohmann/json.hpp>
 
 std::string const TITLE = "CrazyDiskInfo";
 std::string const VERSION = "1.0.2";
@@ -46,7 +50,7 @@ public:
 	std::string name;
 	uint8_t current;
 	uint8_t worst;
-	uint8_t threshold;
+	std::optional<uint8_t> threshold;
 	uint64_t raw;
 };
 
@@ -57,91 +61,123 @@ public:
 	std::string model;
 	std::string firmware;
 	std::string serial;
-	//TODO
-	//use std::optional
-	std::pair<bool, uint64_t> size;
-	std::pair<bool, uint64_t> powerOnCount;
-	std::pair<bool, uint64_t> powerOnHour;
-	std::pair<bool, double> temperature;
+	std::optional<uint64_t> size;
+	std::optional<double> temperature;
+	std::string standard;
+	int32_t rpm;
 
 	std::vector<Attribute> attribute;
 
-	SMART(std::string deviceName)
-	:
-	deviceName(deviceName)
+	std::optional<uint64_t> powerOnCount() const
 	{
-		SkDisk * skdisk;
-		sk_disk_open(deviceName.c_str(), &skdisk);
-		sk_disk_smart_read_data(skdisk);
-
-		const SkIdentifyParsedData * data;
-		sk_disk_identify_parse(skdisk, &data);
-		model = data->model;
-		firmware = data->firmware;
-		serial = data->serial;
-
-		uint64_t value;
-		if (!sk_disk_get_size(skdisk, &value))
+		if (auto e = std::find_if(attribute.cbegin(), attribute.cend(), [](auto const & a){return a.id == 0x0C;}); e != attribute.end())
 		{
-			std::get<0>(size) = true;
-			std::get<1>(size) = value;
+			return std::make_optional(e->raw);
 		}
 		else
 		{
-			std::get<0>(size) = false;
+			return std::nullopt;
 		}
+	}
 
-		if (!sk_disk_smart_get_power_cycle(skdisk, &value))
+	std::optional<uint64_t> powerOnHour() const
+	{
+		if (auto e = std::find_if(attribute.cbegin(), attribute.cend(), [](auto const & a){return a.id == 0x09;}); e != attribute.end())
 		{
-			std::get<0>(powerOnCount) = true;
-			std::get<1>(powerOnCount) = value;
+			return std::make_optional(e->raw);
 		}
 		else
 		{
-			std::get<0>(powerOnCount) = false;
+			return std::nullopt;
 		}
-
-		if (!sk_disk_smart_get_power_on(skdisk, &value))
-		{
-			std::get<0>(powerOnHour) = true;
-			std::get<1>(powerOnHour) = value / (1000llu * 60llu * 60llu);
-		}
-		else
-		{
-			std::get<0>(powerOnHour) = false;
-		}
-
-		if (!sk_disk_smart_get_temperature(skdisk, &value))
-		{
-			std::get<0>(temperature) = true;
-			std::get<1>(temperature) = (double)(value - 273150llu) / 1000.0;
-		}
-		else
-		{
-			std::get<0>(temperature) = false;
-		}
-
-		sk_disk_smart_parse_attributes(skdisk, [](SkDisk * skdisk, SkSmartAttributeParsedData const * data, void * userdata)
-		{
-			auto attribute = reinterpret_cast<std::vector<Attribute> *>(userdata);
-			Attribute attr = {};
-			attr.id = data->id;
-			attr.name = data->name;
-			attr.current = data->current_value;
-			attr.worst = data->worst_value;
-			attr.threshold = data->threshold;
-			for (int i = 0; i < 6; ++i)
-			{
-				attr.raw += data->raw[i] << (8 * i);
-			}
-			attribute->push_back(attr);
-		}, &attribute);
-
-		sk_disk_free(skdisk);
 	}
 };
 
-Health temperatureToHealth(double temperature)
+std::optional<std::string> exec(std::string_view const & cmd)
+{
+	auto raw = std::unique_ptr<FILE, decltype(&pclose)>(popen(cmd.data(), "r"), pclose);
+
+	if (raw)
+	{
+		std::array<char, 256> buffer;
+		std::string result;
+
+		while (!feof(raw.get()))
+		{
+			if (fgets(buffer.data(), 256, raw.get()) != nullptr)
+			{
+				result += buffer.data();
+			}
+		}
+
+		return result;
+	}
+	else
+	{
+		return std::nullopt;
+	}
+}
+
+std::optional<SMART> deviceNameToSMART(std::string_view const & deviceName)
+{
+	try
+	{
+		auto const t = exec(std::string("smartctl -ja ") + std::string(deviceName));
+		if (!t.has_value())
+		{
+			return std::nullopt;
+		}
+		auto const j = nlohmann::json::parse(*t);
+		if (j["smartctl"]["exit_status"].get<int>())
+		{
+			return std::nullopt;
+		}
+
+		auto smart = SMART();
+		smart.firmware = j["firmware_version"].get<std::string>();
+		smart.serial = j["serial_number"].get<std::string>();
+		smart.model = j["model_name"].get<std::string>();
+		smart.deviceName = j["device"]["name"].get<std::string>();
+		smart.standard = j["ata_version"]["string"].get<std::string>();
+		smart.rpm = j["rotation_rate"].get<int32_t>();
+
+		if (j["temperature"]["current"].is_number())
+		{
+			smart.temperature = std::make_optional(j["temperature"]["current"].get<double>());
+		}
+
+		if (j["user_capacity"]["bytes"]["n"].is_number())
+		{
+			smart.size = std::make_optional(j["user_capacity"]["bytes"]["n"].get<uint64_t>());
+		}
+
+		std::vector<Attribute> attribute;
+		for (auto e : j["ata_smart_attributes"]["table"])
+		{
+			auto attr = Attribute();
+			attr.id = e["id"].get<uint8_t>();
+			attr.name = e["name"].get<std::string>();
+			attr.current = e["value"].get<uint8_t>();
+			attr.worst = e["worst"].get<uint8_t>();
+			if (e["thresh"].is_number())
+			{
+				attr.threshold = std::make_optional(e["thresh"].get<uint8_t>());
+			}
+			attr.raw = e["raw"]["value"].get<uint64_t>();
+			attribute.push_back(attr);
+		}
+		smart.attribute = attribute;
+
+		return std::make_optional(smart);
+	}
+	catch(...)
+	{
+	}
+
+	return std::nullopt;
+}
+
+Health temperatureToHealth(double const temperature)
 {
 	if (temperature < 50)
 	{
@@ -159,7 +195,7 @@ Health temperatureToHealth(double temperature)
 
 Health attributeToHealth(Attribute const & attribute)
 {
-	if ((attribute.threshold != 0) && (attribute.current < attribute.threshold))
+	if (attribute.threshold.has_value() && (attribute.current < attribute.threshold.value()))
 	{
 		return Health::Bad;
 	}
@@ -181,7 +217,7 @@ Health smartToHealth(SMART const & smart)
 	}));
 }
 
-std::string healthToString(Health health)
+std::string healthToString(Health const health)
 {
 	switch (health)
 	{
@@ -204,7 +240,7 @@ void drawVersion(WINDOW * window)
 	mvwhline(window, 0, 0, '-', width);
 	wattroff(window, COLOR_PAIR(4));
 
-	auto title = " " + TITLE + "-" + VERSION + " ";
+	auto const title = " " + TITLE + "-" + VERSION + " ";
 
 	wattrset(window, COLOR_PAIR(8));
 	mvwprintw(window, 0, (width - title.length()) / 2, title.c_str());
@@ -222,13 +258,13 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 		mvwprintw(window, 0, x, "%-7s", healthToString(smartToHealth(smartList[i])).c_str());
 		wattroff(window, COLOR_PAIR(1 + static_cast<int>(smartToHealth(smartList[i]))));
 
-		if (std::get<0>(smartList[i].temperature))
+		if (auto const t = smartList[i].temperature)
 		{
-			wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
-			mvwprintw(window, 1, x, "%.1f ", smartList[i].temperature);
+			wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(*t))));
+			mvwprintw(window, 1, x, "%.1f ", *t);
 			waddch(window, ACS_DEGREE);
 			waddstr(window, "C");
-			wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
+			wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(*t))));
 		}
 		else
 		{
@@ -261,24 +297,18 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 {
 	wresize(window, 10 + smart.attribute.size(), STATUS_WIDTH);
 	wborder(window, '|', '|', '-', '-', '+', '+', '+', '+');
-	if (std::get<0>(smart.size))
+	if (smart.size.has_value())
 	{
-		std::vector<std::string> unit = {{"Byte", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}};
+		std::vector<std::string> const unit = {{"Byte", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}};
 		int u = 0;
-		double size = std::get<1>(smart.size);
-		while (true)
+		double size = smart.size.value();
+		while ((size / 1024.0) > 1.0)
 		{
-			double old = size;
-			size /= 1024;
-			if (size < 1.0)
-			{
-				size = old;
-				break;
-			}
+			size /= 1024.0;
 			++u;
 		}
 		char s[STATUS_WIDTH];
-		int len = snprintf(s, STATUS_WIDTH, " %s [%.1f %s] ", smart.model.c_str(), size, unit[u].c_str());
+		int len = std::snprintf(s, STATUS_WIDTH, " %s [%.1f %s] ", smart.model.c_str(), size, unit[u].c_str());
 		wattrset(window, COLOR_PAIR(4) | A_BOLD);
 		mvwprintw(window, 0, (STATUS_WIDTH - len) / 2, "%s", s);
 		wattroff(window, COLOR_PAIR(4) | A_BOLD);
@@ -286,21 +316,21 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 	else
 	{
 		char s[STATUS_WIDTH];
-		int len = snprintf(s, STATUS_WIDTH, " %s [--] ", smart.model.c_str());
+		int len = std::snprintf(s, STATUS_WIDTH, " %s [--] ", smart.model.c_str());
 		wattrset(window, COLOR_PAIR(4) | A_BOLD);
 		mvwprintw(window, 0, (STATUS_WIDTH - len) / 2, "%s", s);
 		wattroff(window, COLOR_PAIR(4) | A_BOLD);
 	}
 
 	wattrset(window, COLOR_PAIR(4));
-	mvwprintw(window, 2, (int)(STATUS_WIDTH * (1.0 / 5)), "Firmware:");
+	mvwprintw(window, 2, static_cast<int>(STATUS_WIDTH * (1.0 / 5)), "Firmware:");
 	wattroff(window, COLOR_PAIR(4));
 	wattrset(window, COLOR_PAIR(4) | A_BOLD);
 	wprintw(window, " %s", smart.firmware.c_str());
 	wattroff(window, COLOR_PAIR(4) | A_BOLD);
 
 	wattrset(window, COLOR_PAIR(4));
-	mvwprintw(window, 3, (int)(STATUS_WIDTH * (1.0 / 5)), "Serial:  ");
+	mvwprintw(window, 3, static_cast<int>(STATUS_WIDTH * (1.0 / 5)), "Serial:  ");
 	wattroff(window, COLOR_PAIR(4));
 	wattrset(window, COLOR_PAIR(4) | A_BOLD);
 	if (option.hideSerial)
@@ -323,16 +353,16 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 	mvwprintw(window, 3, 2 + ((sizeof("|        |") - healthToString(smartToHealth(smart)).length()) / 2), "%s", healthToString(smartToHealth(smart)).c_str());
 	wattroff(window, COLOR_PAIR(1 + static_cast<int>(smartToHealth(smart))));
 
-	if (std::get<0>(smart.temperature))
+	if (auto const t = smart.temperature)
 	{
 		wattrset(window, COLOR_PAIR(4));
 		mvwprintw(window, 5, 1, "Temperature");
 		wattroff(window, COLOR_PAIR(4));
-		wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smart.temperature)))));
-		mvwprintw(window, 6, 2, "  %0.1f ", std::get<1>(smart.temperature));
+		wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(*t))));
+		mvwprintw(window, 6, 2, "  %.1f ", *t);
 		waddch(window, ACS_DEGREE);
 		waddstr(window, "C  ");
-		wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smart.temperature)))));
+		wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(*t))));
 	}
 	else
 	{
@@ -342,30 +372,30 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 		waddstr(window, "C  ");
 	}
 
-	if (std::get<0>(smart.powerOnCount))
+	if (auto const count = smart.powerOnCount())
 	{
 		wattrset(window, COLOR_PAIR(4));
-		mvwprintw(window, 2, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
+		mvwprintw(window, 2, static_cast<int>(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
 		wattroff(window, COLOR_PAIR(4));
 		wattrset(window, COLOR_PAIR(4) | A_BOLD);
-		wprintw(window, " %llu ", std::get<1>(smart.powerOnCount));
+		wprintw(window, " %llu ", *count);
 		wattroff(window, COLOR_PAIR(4) | A_BOLD);
 		wattrset(window, COLOR_PAIR(4));
 		wprintw(window, "count");
 	}
 	else
 	{
-		mvwprintw(window, 2, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
+		mvwprintw(window, 2, static_cast<int>(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
 		wprintw(window, " -- count");
 	}
 
-	if (std::get<0>(smart.powerOnHour))
+	if (auto const hour = smart.powerOnHour())
 	{
 		wattrset(window, COLOR_PAIR(4));
-		mvwprintw(window, 3, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
+		mvwprintw(window, 3, static_cast<int>(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
 		wattroff(window, COLOR_PAIR(4));
 		wattrset(window, COLOR_PAIR(4) | A_BOLD);
-		wprintw(window, " %llu ", std::get<1>(smart.powerOnHour));
+		wprintw(window, " %llu ", *hour);
 		wattroff(window, COLOR_PAIR(4) | A_BOLD);
 		wattrset(window, COLOR_PAIR(4));
 		wprintw(window, "hours");
@@ -373,7 +403,7 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 	}
 	else
 	{
-		mvwprintw(window, 3, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
+		mvwprintw(window, 3, static_cast<int>(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
 		wprintw(window, " -- hours");
 	}
 
@@ -382,18 +412,28 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 	wattroff(window, COLOR_PAIR(7));
 	for (int i = 0; i < static_cast<int>(smart.attribute.size()); ++i)
 	{
+		std::array<char, 10> threshold = {};
+		if (auto t = smart.attribute[i].threshold)
+		{
+			std::snprintf(threshold.data(), threshold.size(), "%9d", *t);
+		}
+		else
+		{
+			std::string("       --").copy(threshold.data(), threshold.size());
+		}
+
 		wattrset(window, COLOR_PAIR(4 + static_cast<int>(attributeToHealth(smart.attribute[i]))));
 #ifndef RAWDEC
-		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9d %012X ",
+		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9s %012X ",
 #else
-		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9d %012d ",
+		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9s %012d ",
 #endif//RAWDEC
 			healthToString(attributeToHealth(smart.attribute[i])).c_str(),
 			smart.attribute[i].id,
 			smart.attribute[i].name.c_str(),
 			smart.attribute[i].current,
 			smart.attribute[i].worst,
-			smart.attribute[i].threshold,
+			threshold.data(),
 			smart.attribute[i].raw);
 		wattroff(window, COLOR_PAIR(4 + static_cast<int>(attributeToHealth(smart.attribute[i]))));
 	}
@@ -413,6 +453,32 @@ void actionWINCH(int)
 
 int main()
 {
+	auto scan = exec("smartctl -j --scan").value();
+	if (!nlohmann::json::accept(scan))
+	{
+		std::cerr << scan << std::endl;
+		return 1;
+	}
+	auto devices = nlohmann::json::parse(scan)["devices"];
+
+	std::vector<SMART> smartList;
+	for (auto device : devices)
+	{
+		if (auto const d = deviceNameToSMART(device["name"].get<std::string>()))
+		{
+			smartList.push_back(*d);
+		}
+	}
+	std::sort(smartList.begin(), smartList.end(), [](SMART const & lhs, SMART const & rhs){return lhs.deviceName < rhs.deviceName;});
+
+	if (smartList.size() == 0)
+	{
+		endwin();
+		std::cerr << "No S.M.A.R.T readable devices." << std::endl;
+		std::cerr << "If you are non-root user, please use sudo or become root." << std::endl;
+		return 1;
+	}
+
 	setlocale(LC_ALL, "");
 	initscr();
 	cbreak();
@@ -429,44 +495,6 @@ int main()
 	init_pair(6, COLOR_WHITE, COLOR_RED);
 	init_pair(7, COLOR_BLACK, COLOR_GREEN);
 	init_pair(8, COLOR_YELLOW, COLOR_BLACK);
-
-	std::vector<SMART> smartList;
-	auto dir = opendir("/sys/block");
-	while (auto e = readdir(dir))
-	{
-		if (std::string(".") != std::string(e->d_name) &&
-			std::string("..") != std::string(e->d_name) &&
-			std::string("ram") != std::string(e->d_name).substr(0,3) &&
-			std::string("loop") != std::string(e->d_name).substr(0,4))
-		{
-			SkDisk * skdisk;
-			SkBool b;
-			int f = sk_disk_open((std::string("/dev/") + std::string(e->d_name)).c_str(), &skdisk);
-			if (f < 0)
-			{
-				continue;
-			}
-			int smart_ret = sk_disk_smart_is_available(skdisk, &b);
-			sk_disk_free(skdisk);
-			if (smart_ret < 0)
-			{
-				continue;
-			}
-			if (b)
-			{
-				smartList.push_back(SMART(std::string("/dev/") + std::string(e->d_name)));
-			}
-		}
-	}
-	std::sort(smartList.begin(), smartList.end(), [](SMART const & lhs, SMART const & rhs){return lhs.deviceName < rhs.deviceName;});
-
-	if (smartList.size() == 0)
-	{
-		endwin();
-		std::cerr << "No S.M.A.R.T readable devices." << std::endl;
-		std::cerr << "If you are non-root user, please use sudo or become root." << std::endl;
-		return 1;
-	}
 
 	int select = 0;
 	Option option;
