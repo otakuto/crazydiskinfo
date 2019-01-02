@@ -18,6 +18,11 @@ constexpr int const DEVICE_BAR_HEIGHT = 4;
 
 constexpr int const VERSION_HEIGHT = 1;
 
+constexpr int const HEALTH_COLOR = 1;
+constexpr int const HEALTH_INV_COLOR = 4;
+constexpr int const ATTRIBUTE_LEGEND_COLOR = 7;
+constexpr int const TITLE_COLOR = 8;
+
 int width;
 int height;
 
@@ -200,15 +205,15 @@ void drawVersion(WINDOW * window)
 {
 	wresize(window, VERSION_HEIGHT, width);
 
-	wattrset(window, COLOR_PAIR(4));
+	wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 	mvwhline(window, 0, 0, '-', width);
-	wattroff(window, COLOR_PAIR(4));
+	wattroff(window, COLOR_PAIR(HEALTH_COLOR));
 
 	auto title = " " + TITLE + "-" + VERSION + " ";
 
-	wattrset(window, COLOR_PAIR(8));
+	wattrset(window, COLOR_PAIR(TITLE_COLOR));
 	mvwprintw(window, 0, (width - title.length()) / 2, title.c_str());
-	wattroff(window, COLOR_PAIR(8));
+	wattroff(window, COLOR_PAIR(TITLE_COLOR));
 
 	wnoutrefresh(window);
 }
@@ -218,17 +223,17 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 	int x = 0;
 	for (int i = 0; i < static_cast<int>(smartList.size()); ++i)
 	{
-		wattrset(window, COLOR_PAIR(1 + static_cast<int>(smartToHealth(smartList[i]))));
+		wattrset(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(smartToHealth(smartList[i]))));
 		mvwprintw(window, 0, x, "%-7s", healthToString(smartToHealth(smartList[i])).c_str());
-		wattroff(window, COLOR_PAIR(1 + static_cast<int>(smartToHealth(smartList[i]))));
+		wattroff(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(smartToHealth(smartList[i]))));
 
 		if (std::get<0>(smartList[i].temperature))
 		{
-			wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
+			wattrset(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
 			mvwprintw(window, 1, x, "%.1f ", smartList[i].temperature);
 			waddch(window, ACS_DEGREE);
 			waddstr(window, "C");
-			wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
+			wattroff(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
 		}
 		else
 		{
@@ -239,13 +244,13 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 
 		if (i == select)
 		{
-			wattrset(window, COLOR_PAIR(4) | A_BOLD);
+			wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 			mvwprintw(window, 2, x, smartList[i].deviceName.c_str());
-			wattroff(window, COLOR_PAIR(4) | A_BOLD);
+			wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 
-			wattrset(window, COLOR_PAIR(4));
+			wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 			mvwhline(window, 3, x, '-', smartList[i].deviceName.length());
-			wattroff(window, COLOR_PAIR(4));
+			wattroff(window, COLOR_PAIR(HEALTH_COLOR));
 		}
 		else
 		{
@@ -279,30 +284,30 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 		}
 		char s[STATUS_WIDTH];
 		int len = snprintf(s, STATUS_WIDTH, " %s [%.1f %s] ", smart.model.c_str(), size, unit[u].c_str());
-		wattrset(window, COLOR_PAIR(4) | A_BOLD);
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		mvwprintw(window, 0, (STATUS_WIDTH - len) / 2, "%s", s);
-		wattroff(window, COLOR_PAIR(4) | A_BOLD);
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 	}
 	else
 	{
 		char s[STATUS_WIDTH];
 		int len = snprintf(s, STATUS_WIDTH, " %s [--] ", smart.model.c_str());
-		wattrset(window, COLOR_PAIR(4) | A_BOLD);
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		mvwprintw(window, 0, (STATUS_WIDTH - len) / 2, "%s", s);
-		wattroff(window, COLOR_PAIR(4) | A_BOLD);
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 	}
 
-	wattrset(window, COLOR_PAIR(4));
+	wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 	mvwprintw(window, 2, (int)(STATUS_WIDTH * (1.0 / 5)), "Firmware:");
-	wattroff(window, COLOR_PAIR(4));
-	wattrset(window, COLOR_PAIR(4) | A_BOLD);
+	wattroff(window, COLOR_PAIR(HEALTH_COLOR));
+	wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 	wprintw(window, " %s", smart.firmware.c_str());
-	wattroff(window, COLOR_PAIR(4) | A_BOLD);
+	wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 
-	wattrset(window, COLOR_PAIR(4));
+	wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 	mvwprintw(window, 3, (int)(STATUS_WIDTH * (1.0 / 5)), "Serial:  ");
-	wattroff(window, COLOR_PAIR(4));
-	wattrset(window, COLOR_PAIR(4) | A_BOLD);
+	wattroff(window, COLOR_PAIR(HEALTH_COLOR));
+	wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 	if (option.hideSerial)
 	{
 		wprintw(window, " ********************");
@@ -311,28 +316,28 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 	{
 		wprintw(window, " %s", smart.serial.c_str());
 	}
-	wattroff(window, COLOR_PAIR(4) | A_BOLD);
+	wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 
-	wattrset(window, COLOR_PAIR(4));
+	wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 	mvwprintw(window, 1, 1, "Status");
-	wattroff(window, COLOR_PAIR(4));
-	wattrset(window, COLOR_PAIR(1 + static_cast<int>(smartToHealth(smart))));
+	wattroff(window, COLOR_PAIR(HEALTH_COLOR));
+	wattrset(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(smartToHealth(smart))));
 	mvwprintw(window, 2, 2, "+--------+");
 	mvwprintw(window, 3, 2, "|        |");
 	mvwprintw(window, 4, 2, "+--------+");
 	mvwprintw(window, 3, 2 + ((sizeof("|        |") - healthToString(smartToHealth(smart)).length()) / 2), "%s", healthToString(smartToHealth(smart)).c_str());
-	wattroff(window, COLOR_PAIR(1 + static_cast<int>(smartToHealth(smart))));
+	wattroff(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(smartToHealth(smart))));
 
 	if (std::get<0>(smart.temperature))
 	{
-		wattrset(window, COLOR_PAIR(4));
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		mvwprintw(window, 5, 1, "Temperature");
-		wattroff(window, COLOR_PAIR(4));
-		wattrset(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smart.temperature)))));
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR));
+		wattrset(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(temperatureToHealth(std::get<1>(smart.temperature)))));
 		mvwprintw(window, 6, 2, "  %0.1f ", std::get<1>(smart.temperature));
 		waddch(window, ACS_DEGREE);
 		waddstr(window, "C  ");
-		wattroff(window, COLOR_PAIR(1 + static_cast<int>(temperatureToHealth(std::get<1>(smart.temperature)))));
+		wattroff(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(temperatureToHealth(std::get<1>(smart.temperature)))));
 	}
 	else
 	{
@@ -344,13 +349,13 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 
 	if (std::get<0>(smart.powerOnCount))
 	{
-		wattrset(window, COLOR_PAIR(4));
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		mvwprintw(window, 2, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
-		wattroff(window, COLOR_PAIR(4));
-		wattrset(window, COLOR_PAIR(4) | A_BOLD);
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR));
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		wprintw(window, " %llu ", std::get<1>(smart.powerOnCount));
-		wattroff(window, COLOR_PAIR(4) | A_BOLD);
-		wattrset(window, COLOR_PAIR(4));
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		wprintw(window, "count");
 	}
 	else
@@ -361,15 +366,15 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 
 	if (std::get<0>(smart.powerOnHour))
 	{
-		wattrset(window, COLOR_PAIR(4));
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		mvwprintw(window, 3, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
-		wattroff(window, COLOR_PAIR(4));
-		wattrset(window, COLOR_PAIR(4) | A_BOLD);
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR));
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		wprintw(window, " %llu ", std::get<1>(smart.powerOnHour));
-		wattroff(window, COLOR_PAIR(4) | A_BOLD);
-		wattrset(window, COLOR_PAIR(4));
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		wprintw(window, "hours");
-		wattroff(window, COLOR_PAIR(4));
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR));
 	}
 	else
 	{
@@ -377,12 +382,12 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 		wprintw(window, " -- hours");
 	}
 
-	wattrset(window, COLOR_PAIR(7));
+	wattrset(window, COLOR_PAIR(ATTRIBUTE_LEGEND_COLOR));
 	mvwprintw(window, 8, 1, " Status  ID AttributeName                Current Worst Threshold   Raw Values ");
-	wattroff(window, COLOR_PAIR(7));
+	wattroff(window, COLOR_PAIR(ATTRIBUTE_LEGEND_COLOR));
 	for (int i = 0; i < static_cast<int>(smart.attribute.size()); ++i)
 	{
-		wattrset(window, COLOR_PAIR(4 + static_cast<int>(attributeToHealth(smart.attribute[i]))));
+		wattrset(window, COLOR_PAIR(HEALTH_COLOR + static_cast<int>(attributeToHealth(smart.attribute[i]))));
 #ifndef RAWDEC
 		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9d %012X ",
 #else
@@ -395,7 +400,7 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 			smart.attribute[i].worst,
 			smart.attribute[i].threshold,
 			smart.attribute[i].raw);
-		wattroff(window, COLOR_PAIR(4 + static_cast<int>(attributeToHealth(smart.attribute[i]))));
+		wattroff(window, COLOR_PAIR(HEALTH_COLOR + static_cast<int>(attributeToHealth(smart.attribute[i]))));
 	}
 	pnoutrefresh(window, 0, 0,
 			5, std::max(0, (width - STATUS_WIDTH) / 2),
@@ -421,14 +426,14 @@ int main()
 	getmaxyx(stdscr, height, width);
 
 	start_color();
-	init_pair(1, COLOR_BLACK, COLOR_CYAN);
-	init_pair(2, COLOR_BLACK, COLOR_YELLOW);
-	init_pair(3, COLOR_WHITE, COLOR_RED);
-	init_pair(4, COLOR_CYAN, COLOR_BLACK);
-	init_pair(5, COLOR_BLACK, COLOR_YELLOW);
-	init_pair(6, COLOR_WHITE, COLOR_RED);
-	init_pair(7, COLOR_BLACK, COLOR_GREEN);
-	init_pair(8, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(HEALTH_COLOR, COLOR_CYAN, COLOR_BLACK);
+	init_pair(HEALTH_COLOR + 1, COLOR_BLACK, COLOR_YELLOW);
+	init_pair(HEALTH_COLOR + 2, COLOR_WHITE, COLOR_RED);
+	init_pair(HEALTH_INV_COLOR, COLOR_BLACK, COLOR_CYAN);
+	init_pair(HEALTH_INV_COLOR + 1, COLOR_BLACK, COLOR_YELLOW);
+	init_pair(HEALTH_INV_COLOR + 2, COLOR_WHITE, COLOR_RED);
+	init_pair(ATTRIBUTE_LEGEND_COLOR, COLOR_BLACK, COLOR_GREEN);
+	init_pair(TITLE_COLOR, COLOR_YELLOW, COLOR_BLACK);
 
 	std::vector<SMART> smartList;
 	auto dir = opendir("/sys/block");
