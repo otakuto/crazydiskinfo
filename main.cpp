@@ -64,7 +64,7 @@ public:
 	std::string serial;
 	//TODO
 	//use std::optional
-	std::pair<bool, uint64_t> size;
+	std::pair<bool, uint64_t> capacity;
 	std::pair<bool, uint64_t> powerOnCount;
 	std::pair<bool, uint64_t> powerOnHour;
 	std::pair<bool, double> temperature;
@@ -88,12 +88,12 @@ public:
 		uint64_t value;
 		if (!sk_disk_get_size(skdisk, &value))
 		{
-			std::get<0>(size) = true;
-			std::get<1>(size) = value;
+			std::get<0>(capacity) = true;
+			std::get<1>(capacity) = value;
 		}
 		else
 		{
-			std::get<0>(size) = false;
+			std::get<0>(capacity) = false;
 		}
 
 		if (!sk_disk_smart_get_power_cycle(skdisk, &value))
@@ -266,24 +266,24 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 {
 	wresize(window, 10 + smart.attribute.size(), STATUS_WIDTH);
 	wborder(window, '|', '|', '-', '-', '+', '+', '+', '+');
-	if (std::get<0>(smart.size))
+	if (std::get<0>(smart.capacity))
 	{
 		std::vector<std::string> unit = {{"Byte", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}};
 		int u = 0;
-		double size = std::get<1>(smart.size);
+		double capacity = std::get<1>(smart.capacity);
 		while (true)
 		{
-			double old = size;
-			size /= 1024;
-			if (size < 1.0)
+			double old = capacity;
+			capacity /= 1024;
+			if (capacity < 1.0)
 			{
-				size = old;
+				capacity = old;
 				break;
 			}
 			++u;
 		}
 		char s[STATUS_WIDTH];
-		int len = snprintf(s, STATUS_WIDTH, " %s [%.1f %s] ", smart.model.c_str(), size, unit[u].c_str());
+		int len = snprintf(s, STATUS_WIDTH, " %s [%.1f %s] ", smart.model.c_str(), capacity, unit[u].c_str());
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		mvwprintw(window, 0, (STATUS_WIDTH - len) / 2, "%s", s);
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
