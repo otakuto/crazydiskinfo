@@ -12,7 +12,7 @@
 std::string const TITLE = "CrazyDiskInfo";
 std::string const VERSION = "1.0.2";
 
-constexpr int const STATUS_WIDTH = 80;
+constexpr int const STATUS_WIDTH = 83;
 
 constexpr int const DEVICE_BAR_HEIGHT = 4;
 
@@ -30,9 +30,11 @@ class Option
 {
 public:
 	bool hideSerial;
+	bool isRawHex;
 	Option()
 	:
-	hideSerial(false)
+	hideSerial(false),
+	isRawHex(true)
 	{
 	}
 };
@@ -383,16 +385,14 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 	}
 
 	wattrset(window, COLOR_PAIR(ATTRIBUTE_LEGEND_COLOR));
-	mvwprintw(window, 8, 1, " Status  ID AttributeName                Current Worst Threshold   Raw Values ");
+	mvwprintw(window, 8, 1, " Status  ID AttributeName                Current Worst Threshold  RawValues(%s) ", option.isRawHex ? "Hex" : "Dec");
 	wattroff(window, COLOR_PAIR(ATTRIBUTE_LEGEND_COLOR));
+
+	auto attributeFormat = option.isRawHex ? " %-7s %02X %-28s %7d %5d %9d    %012llX " : " %-7s %02X %-28s %7d %5d %9d %15llu ";
 	for (int i = 0; i < static_cast<int>(smart.attribute.size()); ++i)
 	{
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR + static_cast<int>(attributeToHealth(smart.attribute[i]))));
-#ifndef RAWDEC
-		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9d %012X ",
-#else
-		mvwprintw(window, 9 + i, 1, " %-7s %02X %-28s %7d %5d %9d %012d ",
-#endif//RAWDEC
+		mvwprintw(window, 9 + i, 1, attributeFormat,
 			healthToString(attributeToHealth(smart.attribute[i])).c_str(),
 			smart.attribute[i].id,
 			smart.attribute[i].name.c_str(),
@@ -553,6 +553,12 @@ int main()
 				update();
 				break;
 
+			case 'd':
+				option.isRawHex = !option.isRawHex;
+				clear();
+				refresh();
+				update();
+				break;
 
 			case 'q':
 				endwin();
