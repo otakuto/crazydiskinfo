@@ -26,6 +26,29 @@ $ make && make install
 $ sudo crazy
 ```
 
+## Build rpm or deb packge, Install and Run
+In rpm environment:
+```
+$ sudo yum install ncurses-devel libatasmart-devel gcc-c++ cmake
+$ mkdir build
+$ cd build
+$ cmake ..
+$ cpack --config CPackConfig.cmake
+$ sudo rpm -ihv CrazyDiskInfo-*.rpm
+$ sudo crazy
+```
+
+In deb environment:
+```
+$ sudo apt-get install libatasmart-dev libncurses5-dev libncursesw5-dev cmake g++
+$ mkdir build
+$ cd build
+$ cmake ..
+$ cpack --config CPackConfig.cmake
+$ sudo dpkg -i crazydiskinfo_*.deb
+$ sudo crazy
+```
+
 ### Binary Package
 Debian package is available from [OBS(Open Build Service)](https://build.opensuse.org/package/show/home:tsuroot/CrazyDiskInfo)  
 Direct Links:  
