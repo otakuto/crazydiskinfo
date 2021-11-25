@@ -507,7 +507,8 @@ int main()
 	update();
 
 	{
-		struct sigaction s = {{actionWINCH}};
+		struct sigaction s = {0};
+		s.sa_handler = actionWINCH;
 		sigaction(SIGWINCH, &s, nullptr);
 	}
 
