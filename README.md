@@ -14,7 +14,7 @@ CrazyDiskInfo is an interactive TUI S.M.A.R.T viewer for Unix systems.
 
 #### Debian(or derivative) Systems
 ```
-# apt install libatasmart-dev libncurses5-dev libncursesw5-dev
+# apt install libatasmart-dev libncursesw5-dev
 ```
 
 ## Build and Run
