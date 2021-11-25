@@ -355,7 +355,7 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 		mvwprintw(window, 2, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR));
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
-		wprintw(window, " %llu ", std::get<1>(smart.powerOnCount));
+		wprintw(window, " %" PRIu64 " ", std::get<1>(smart.powerOnCount));
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		wprintw(window, "count");
@@ -372,7 +372,7 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 		mvwprintw(window, 3, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR));
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
-		wprintw(window, " %llu ", std::get<1>(smart.powerOnHour));
+		wprintw(window, " %" PRIu64 " ", std::get<1>(smart.powerOnHour));
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		wprintw(window, "hours");
