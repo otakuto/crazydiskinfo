@@ -232,7 +232,7 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 		if (std::get<0>(smartList[i].temperature))
 		{
 			wattrset(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
-			mvwprintw(window, 1, x, "%.1f ", smartList[i].temperature);
+			mvwprintw(window, 1, x, "%.1f ", std::get<1>(smartList[i].temperature));
 			waddch(window, ACS_DEGREE);
 			waddstr(window, "C");
 			wattroff(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
