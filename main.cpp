@@ -214,7 +214,7 @@ void drawVersion(WINDOW * window)
 	auto title = " " + TITLE + "-" + VERSION + " ";
 
 	wattrset(window, COLOR_PAIR(TITLE_COLOR));
-	mvwprintw(window, 0, (width - title.length()) / 2, title.c_str());
+	mvwprintw(window, 0, (width - title.length()) / 2, "%s", title.c_str());
 	wattroff(window, COLOR_PAIR(TITLE_COLOR));
 
 	wnoutrefresh(window);
@@ -232,7 +232,7 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 		if (std::get<0>(smartList[i].temperature))
 		{
 			wattrset(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
-			mvwprintw(window, 1, x, "%.1f ", smartList[i].temperature);
+			mvwprintw(window, 1, x, "%.1f ", std::get<1>(smartList[i].temperature));
 			waddch(window, ACS_DEGREE);
 			waddstr(window, "C");
 			wattroff(window, COLOR_PAIR(HEALTH_INV_COLOR + static_cast<int>(temperatureToHealth(std::get<1>(smartList[i].temperature)))));
@@ -247,7 +247,7 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 		if (i == select)
 		{
 			wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
-			mvwprintw(window, 2, x, smartList[i].deviceName.c_str());
+			mvwprintw(window, 2, x, "%s", smartList[i].deviceName.c_str());
 			wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 
 			wattrset(window, COLOR_PAIR(HEALTH_COLOR));
@@ -256,7 +256,7 @@ void drawDeviceBar(WINDOW * window, std::vector<SMART> const & smartList, int se
 		}
 		else
 		{
-			mvwprintw(window, 2, x, smartList[i].deviceName.c_str());
+			mvwprintw(window, 2, x, "%s", smartList[i].deviceName.c_str());
 			mvwhline(window, 3, x, ' ', smartList[i].deviceName.length());
 		}
 		x += smartList[i].deviceName.length() + 1;
@@ -355,7 +355,7 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 		mvwprintw(window, 2, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Count:");
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR));
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
-		wprintw(window, " %llu ", std::get<1>(smart.powerOnCount));
+		wprintw(window, " %" PRIu64 " ", std::get<1>(smart.powerOnCount));
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		wprintw(window, "count");
@@ -372,7 +372,7 @@ void drawStatus(WINDOW * window, SMART const & smart, Option const & option)
 		mvwprintw(window, 3, (int)(STATUS_WIDTH * (3.0 / 5)), "Power On Hours:");
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR));
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
-		wprintw(window, " %llu ", std::get<1>(smart.powerOnHour));
+		wprintw(window, " %" PRIu64 " ", std::get<1>(smart.powerOnHour));
 		wattroff(window, COLOR_PAIR(HEALTH_COLOR) | A_BOLD);
 		wattrset(window, COLOR_PAIR(HEALTH_COLOR));
 		wprintw(window, "hours");
@@ -507,7 +507,8 @@ int main()
 	update();
 
 	{
-		struct sigaction s = {{actionWINCH}};
+		struct sigaction s = {0};
+		s.sa_handler = actionWINCH;
 		sigaction(SIGWINCH, &s, nullptr);
 	}
 
